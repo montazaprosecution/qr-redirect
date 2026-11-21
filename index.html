@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>خدمات الجمهور — جاري الاتصال بالبوابة</title>
+  <title>خدمات الجمهور — جاري التحويل إلى البوابة</title>
   <style>
     body {
       margin: 0;
@@ -82,14 +82,13 @@
   <div class="card">
     <div class="spinner" id="spinner"></div>
     <h1>خدمات الجمهور — تسجيل واستعلام الطلبات</h1>
-    <p id="mainMessage">جاري التحقق من جاهزية البوابة وتوجيهك تلقائياً...</p>
-    <div class="status-box" id="statusBox">يتم الآن فحص الاتصال بالخادم...</div>
+    <p id="mainMessage">جاري التحويل تلقائياً إلى أحدث رابط للبوابة...</p>
+    <div class="status-box" id="statusBox">يتم الآن قراءة الرابط المحدّث...</div>
     <a id="manualLink" class="btn" href="#">فتح البوابة الآن</a>
   </div>
 
   <script>
-    const RETRY_INTERVAL_MS = 4000;
-    const CHECK_TIMEOUT_MS = 5000;
+    const RETRY_INTERVAL_MS = 3000;
     let attemptCount = 0;
 
     function extractTargetUrl(data) {
@@ -110,56 +109,29 @@
       }
       const data = await response.json();
       const targetUrl = extractTargetUrl(data);
-      if (!targetUrl || !targetUrl.startsWith("http")) {
-        throw new Error("الرابط داخل url.json غير صالح");
+      if (!targetUrl || !targetUrl.startsWith("https://")) {
+        throw new Error("الرابط غير صالح");
       }
       return targetUrl;
-    }
-
-    async function checkPortalReachable(url) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
-      try {
-        await fetch(url + "/?ping=" + Date.now(), {
-          mode: "no-cors",
-          cache: "no-store",
-          signal: controller.signal
-        });
-        clearTimeout(timer);
-        return true;
-      } catch (err) {
-        clearTimeout(timer);
-        return false;
-      }
     }
 
     async function tryConnect() {
       attemptCount++;
       const statusBox = document.getElementById("statusBox");
-      const mainMessage = document.getElementById("mainMessage");
       const manualLink = document.getElementById("manualLink");
 
       try {
-        statusBox.textContent = `المحاولة رقم ${attemptCount}: جاري جلب أحدث رابط للبوابة...`;
+        statusBox.textContent = `المحاولة ${attemptCount}: جاري جلب رابط البوابة...`;
         const targetUrl = await fetchLatestUrl();
 
         manualLink.href = targetUrl;
         manualLink.style.display = "inline-block";
 
-        statusBox.textContent = `المحاولة رقم ${attemptCount}: تم العثور على الرابط، جاري التأكد من استجابة البوابة...`;
-        const isReady = await checkPortalReachable(targetUrl);
-
-        if (isReady) {
-          statusBox.textContent = "تم التأكد من جاهزية البوابة! جاري التحويل الآن...";
-          window.location.replace(targetUrl);
-          return;
-        }
-
-        mainMessage.textContent = "البوابة قيد التشغيل الآن (قد يستغرق ذلك ثوانٍ قليلة بعد تشغيل الجهاز).";
-        statusBox.textContent = `الخادم لم يستجب بعد — سيتم إعادة الفحص تلقائياً خلال 4 ثوانٍ (محاولة ${attemptCount})...`;
+        statusBox.textContent = "تم العثور على الرابط، جاري التحويل الآن...";
+        window.location.replace(targetUrl);
+        return;
       } catch (error) {
-        mainMessage.textContent = "بانتظار تحديث رابط البوابة من الخادم...";
-        statusBox.textContent = `تعذر الوصول المؤقت (${error.message}) — إعادة المحاولة خلال 4 ثوانٍ...`;
+        statusBox.textContent = `المحاولة ${attemptCount}: بانتظار تحديث الرابط — إعادة المحاولة خلال 3 ثوانٍ...`;
       }
 
       setTimeout(tryConnect, RETRY_INTERVAL_MS);
