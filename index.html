@@ -3,23 +3,169 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>جاري التحويل...</title>
-  <script>
-    fetch('./url.json?t=' + Date.now())
-      .then(res => res.json())
-      .then(data => {
-        if (data.url && data.url.startsWith('https://')) {
-          window.location.replace(data.url);
-        } else {
-          document.body.innerText = 'الرابط غير متاح حالياً.';
-        }
-      })
-      .catch(() => {
-        document.body.innerText = 'تعذر تحميل رابط التحويل.';
-      });
-  </script>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>خدمات الجمهور — جاري الاتصال بالبوابة</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background: #f4f7f9;
+      color: #1f2937;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      max-width: 440px;
+      width: 100%;
+      padding: 28px 24px;
+      text-align: center;
+      border-top: 5px solid #0f766e;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #0f766e;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 18px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    h1 {
+      font-size: 1.25rem;
+      margin: 0 0 10px;
+      color: #0f766e;
+    }
+    p {
+      font-size: 0.96rem;
+      line-height: 1.6;
+      color: #4b5563;
+      margin: 0 0 14px;
+    }
+    .status-box {
+      background: #f0fdfa;
+      border: 1px solid #ccfbf1;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      color: #115e59;
+      margin-bottom: 16px;
+    }
+    .btn {
+      display: none;
+      background: #0f766e;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+    }
+    .btn:hover {
+      background: #115e59;
+    }
+  </style>
 </head>
 <body>
-  <p>جاري توجيهك إلى الرابط النشط...</p>
+  <div class="card">
+    <div class="spinner" id="spinner"></div>
+    <h1>خدمات الجمهور — تسجيل واستعلام الطلبات</h1>
+    <p id="mainMessage">جاري التحقق من جاهزية البوابة وتوجيهك تلقائياً...</p>
+    <div class="status-box" id="statusBox">يتم الآن فحص الاتصال بالخادم...</div>
+    <a id="manualLink" class="btn" href="#">فتح البوابة الآن</a>
+  </div>
+
+  <script>
+    const RETRY_INTERVAL_MS = 4000;
+    const CHECK_TIMEOUT_MS = 5000;
+    let attemptCount = 0;
+
+    function extractTargetUrl(data) {
+      if (!data) return null;
+      if (typeof data === "string") return data.trim();
+      return (data.url || data.link || data.target || data.tunnel_url || "").trim();
+    }
+
+    async function fetchLatestUrl() {
+      const response = await fetch("./url.json?t=" + Date.now(), {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache"
+        }
+      });
+      if (!response.ok) {
+        throw new Error("تعذر قراءة ملف url.json");
+      }
+      const data = await response.json();
+      const targetUrl = extractTargetUrl(data);
+      if (!targetUrl || !targetUrl.startsWith("http")) {
+        throw new Error("الرابط داخل url.json غير صالح");
+      }
+      return targetUrl;
+    }
+
+    async function checkPortalReachable(url) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
+      try {
+        await fetch(url + "/?ping=" + Date.now(), {
+          mode: "no-cors",
+          cache: "no-store",
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+        return true;
+      } catch (err) {
+        clearTimeout(timer);
+        return false;
+      }
+    }
+
+    async function tryConnect() {
+      attemptCount++;
+      const statusBox = document.getElementById("statusBox");
+      const mainMessage = document.getElementById("mainMessage");
+      const manualLink = document.getElementById("manualLink");
+
+      try {
+        statusBox.textContent = `المحاولة رقم ${attemptCount}: جاري جلب أحدث رابط للبوابة...`;
+        const targetUrl = await fetchLatestUrl();
+
+        manualLink.href = targetUrl;
+        manualLink.style.display = "inline-block";
+
+        statusBox.textContent = `المحاولة رقم ${attemptCount}: تم العثور على الرابط، جاري التأكد من استجابة البوابة...`;
+        const isReady = await checkPortalReachable(targetUrl);
+
+        if (isReady) {
+          statusBox.textContent = "تم التأكد من جاهزية البوابة! جاري التحويل الآن...";
+          window.location.replace(targetUrl);
+          return;
+        }
+
+        mainMessage.textContent = "البوابة قيد التشغيل الآن (قد يستغرق ذلك ثوانٍ قليلة بعد تشغيل الجهاز).";
+        statusBox.textContent = `الخادم لم يستجب بعد — سيتم إعادة الفحص تلقائياً خلال 4 ثوانٍ (محاولة ${attemptCount})...`;
+      } catch (error) {
+        mainMessage.textContent = "بانتظار تحديث رابط البوابة من الخادم...";
+        statusBox.textContent = `تعذر الوصول المؤقت (${error.message}) — إعادة المحاولة خلال 4 ثوانٍ...`;
+      }
+
+      setTimeout(tryConnect, RETRY_INTERVAL_MS);
+    }
+
+    tryConnect();
+  </script>
 </body>
 </html>
