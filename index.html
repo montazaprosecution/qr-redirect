@@ -2,91 +2,27 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <title>خدمات الجمهور — جاري التحويل إلى البوابة</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
-      background: #f4f7f9;
-      color: #1f2937;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 16px;
-    }
-    .card {
-      background: #ffffff;
-      border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-      max-width: 440px;
-      width: 100%;
-      padding: 28px 24px;
-      text-align: center;
-      border-top: 5px solid #0f766e;
-    }
-    h1 { font-size: 1.25rem; margin: 0 0 10px; color: #0f766e; }
-    p { font-size: 0.96rem; line-height: 1.6; color: #4b5563; margin: 0 0 14px; }
-    .status-box {
-      background: #f0fdfa;
-      border: 1px solid #ccfbf1;
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 0.9rem;
-      color: #115e59;
-      margin-bottom: 16px;
-    }
-    .btn {
-      display: none;
-      background: #0f766e;
-      color: #ffffff;
-      text-decoration: none;
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-    }
-  </style>
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>جاري التحويل إلى البوابة...</title>
 </head>
-<body>
-  <div class="card">
-    <h1>خدمات الجمهور — تسجيل واستعلام الطلبات</h1>
-    <p id="mainMessage">جاري التحويل تلقائياً إلى أحدث رابط للبوابة...</p>
-    <div class="status-box" id="statusBox">جاري قراءة الرابط المحدّث...</div>
-    <a id="manualLink" class="btn" href="#">فتح البوابة الآن</a>
-  </div>
+<body style="font-family: Tahoma, Arial, sans-serif; text-align: center; padding-top: 60px;">
+  <h3>جاري التحويل إلى البوابة الإلكترونية، يرجى الانتظار...</h3>
   <script>
-    const RAW_URL_JSON = "https://raw.githubusercontent.com/montazaprosecution/qr-redirect/main/url.json";
-    const RETRY_INTERVAL_MS = 3000;
-    let attemptCount = 0;
-
-    async function tryConnect() {
-      attemptCount++;
-      const statusBox = document.getElementById("statusBox");
-      const manualLink = document.getElementById("manualLink");
-
-      try {
-        statusBox.textContent = `المحاولة ${attemptCount}: جاري جلب رابط البوابة...`;
-        const res = await fetch(RAW_URL_JSON + "?t=" + Date.now(), { cache: "no-store" });
-        if (!res.ok) throw new Error("تعذر قراءة url.json");
-        const data = await res.json();
-        const targetUrl = (typeof data === "string" ? data : (data.url || data.link || data.target || "")).trim();
-
-        if (!targetUrl.startsWith("https://")) throw new Error("الرابط غير جاهز بعد");
-
-        manualLink.href = targetUrl;
-        manualLink.style.display = "inline-block";
-        statusBox.textContent = "تم العثور على الرابط، جاري التحويل...";
-        window.location.replace(targetUrl);
-        return;
-      } catch (e) {
-        statusBox.textContent = `المحاولة ${attemptCount}: بانتظار تحديث الرابط — إعادة الفحص خلال 3 ثوانٍ...`;
-      }
-      setTimeout(tryConnect, RETRY_INTERVAL_MS);
-    }
-    tryConnect();
+    fetch('./url.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(response => response.json())
+      .then(data => {
+        if (data && data.url) {
+          window.location.replace(data.url);
+        } else {
+          document.body.innerHTML = '<h3>الرابط غير متاح حالياً، يرجى المحاولة بعد قليل.</h3>';
+        }
+      })
+      .catch(() => {
+        document.body.innerHTML = '<h3>تعذر الاتصال بالبوابة، يرجى المحاولة بعد قليل.</h3>';
+      });
   </script>
 </body>
 </html>
